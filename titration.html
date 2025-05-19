@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>滴定曲線アニメーション</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; text-align: center; }
+    canvas { max-width: 700px; margin: auto; }
+  </style>
+</head>
+<body>
+
+  <h2>滴定曲線シミュレーション</h2>
+  <canvas id="titrationChart"></canvas>
+  <br>
+  <button onclick="startTitration()">コックを開く（滴定開始）</button>
+  <button onclick="stopTitration()">止める</button>
+  <button onclick="resetTitration()">リセット</button>
+
+  <script>
+    const ctx = document.getElementById('titrationChart').getContext('2d');
+    const data = {
+      labels: [],
+      datasets: [{
+        label: '滴定曲線',
+        data: [],
+        borderColor: 'blue',
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3
+      }]
+    };
+
+    const config = {
+      type: 'line',
+      data: data,
+      options: {
+        animation: false,
+        scales: {
+          x: {
+            type: 'linear',
+            position: 'bottom',
+            title: { display: true, text: '滴加体積 (mL)' }
+          },
+          y: {
+            title: { display: true, text: 'pH' },
+            min: 0,
+            max: 14
+          }
+        }
+      }
+    };
+
+    const chart = new Chart(ctx, config);
+
+    let intervalId = null;
+    let volume = 0;
+
+    function titrationFunction(V) {
+      // 滴定曲線のモデル（簡易式）
+      const Ka = 1.0e-5;
+      const C0 = 0.1;
+      const V0 = 25;
+      const Cb = 0.1;
+      const Ve = C0 * V0 / Cb;
+      if (V < Ve) {
+        const H = Ka * (V0 - V) / V;
+        return -Math.log10(H);
+      } else if (V === Ve) {
+        return 7;
+      } else {
+        const OH = (V - Ve) * Cb / (V0 + V);
+        const pH = 14 + Math.log10(OH);
+        return Math.min(pH, 14);
+      }
+    }
+
+    function addDrop() {
+      if (volume > 50) {
+        stopTitration();
+        return;
+      }
+      const pH = titrationFunction(volume);
+      chart.data.labels.push(volume);
+      chart.data.datasets[0].data.push({ x: volume, y: pH });
+      chart.update();
+      volume += 0.5;
+    }
+
+    function startTitration() {
+      if (intervalId === null) {
+        intervalId = setInterval(addDrop, 300);
+      }
+    }
+
+    function stopTitration() {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+
+    function resetTitration() {
+      stopTitration();
+      volume = 0;
+      chart.data.labels = [];
+      chart.data.datasets[0].data = [];
+      chart.update();
+    }
+  </script>
+
+</body>
+</html>
